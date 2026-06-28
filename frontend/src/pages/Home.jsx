@@ -9,7 +9,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 const Home = () => {
   const [featured, setFeatured] = useState([]);
   const [categories, setCategories] = useState([]);
-  const { settings } = useSiteSettings();
+  const { settings, loading } = useSiteSettings();
   const { scrollY } = useScroll();
   
   // Parallax effects
@@ -42,35 +42,40 @@ const Home = () => {
     <div className="overflow-hidden">
       {/* Hero Section */}
       <section 
-        className="relative min-h-screen flex items-center justify-center overflow-hidden" 
+        className="relative min-h-screen flex items-center justify-center overflow-hidden transition-colors duration-1000" 
         style={{ backgroundColor: 'var(--color-primary)' }}
       >
-        {settings?.heroMediaUrl ? (
-          settings?.heroMediaType === 'video' ? (
+        {!loading && (
+          settings?.heroMediaUrl ? (
+            settings?.heroMediaType === 'video' ? (
+              <video 
+                src={settings.heroMediaUrl} 
+                poster={settings.heroMediaUrl.replace(/\.(mp4|mov|webm)$/i, '.jpg')}
+                autoPlay 
+                loop 
+                muted 
+                playsInline
+                preload="auto"
+                className="absolute inset-0 w-full h-full object-cover z-0 opacity-70 animate-in fade-in duration-1000"
+              />
+            ) : (
+              <img 
+                src={settings.heroMediaUrl} 
+                alt="Hero Background"
+                className="absolute inset-0 w-full h-full object-cover z-0 opacity-70 animate-in fade-in duration-1000"
+              />
+            )
+          ) : (
             <video 
-              src={settings.heroMediaUrl} 
+              src="/hero-video.mp4" 
               autoPlay 
               loop 
               muted 
               playsInline
-              className="absolute inset-0 w-full h-full object-cover z-0 opacity-70"
-            />
-          ) : (
-            <img 
-              src={settings.heroMediaUrl} 
-              alt="Hero Background"
-              className="absolute inset-0 w-full h-full object-cover z-0 opacity-70"
+              preload="auto"
+              className="absolute inset-0 w-full h-full object-cover z-0 opacity-70 animate-in fade-in duration-1000"
             />
           )
-        ) : (
-          <video 
-            src="/hero-video.mp4" 
-            autoPlay 
-            loop 
-            muted 
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover z-0 opacity-70"
-          />
         )}
         <div className="absolute inset-0 bg-noise opacity-[0.03] mix-blend-overlay pointer-events-none z-[1]"></div>
         
