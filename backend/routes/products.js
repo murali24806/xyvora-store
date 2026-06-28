@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
+const Category = require('../models/Category');
 const { protectAdmin } = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
 
@@ -21,7 +22,6 @@ router.get('/', async (req, res) => {
     const filter = { isActive: true };
 
     if (category) {
-      const Category = require('../models/Category');
       const catQuery = [{ slug: category }];
       if (category.match(/^[0-9a-fA-F]{24}$/)) {
         catQuery.push({ _id: category });
