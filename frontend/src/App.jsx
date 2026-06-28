@@ -6,6 +6,7 @@ import { AdminAuthProvider } from './context/AdminAuthContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
+import ScrollToTop from './components/ScrollToTop';
 
 import Home from './pages/Home';
 import Shop from './pages/Shop';
@@ -39,6 +40,7 @@ function App() {
   return (
     <UserAuthProvider>
       <AdminAuthProvider>
+        <ScrollToTop />
         <Routes>
             {/* Public storefront */}
             <Route
