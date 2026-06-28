@@ -48,6 +48,19 @@ const ProductDetail = () => {
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const nextImage = () => {
+    if (product?.images) {
+      setCurrentImageIndex((prev) => (prev + 1) % product.images.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (product?.images) {
+      setCurrentImageIndex((prev) => (prev - 1 + product.images.length) % product.images.length);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -93,27 +106,75 @@ const ProductDetail = () => {
     <div className="max-w-[90rem] mx-auto px-5 md:px-8 py-20 md:py-32">
       <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 relative">
         
-        {/* Left: Sticky Image Stack */}
+        {/* Left: Image Carousel */}
         <div className="w-full lg:w-3/5 lg:sticky lg:top-32 h-fit">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="relative bg-surface rounded-xl overflow-hidden aspect-[4/5] md:h-[75vh]">
             {product.images?.length > 0 ? (
-              product.images.map((img, idx) => (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  className={`bg-surface rounded-xl overflow-hidden aspect-[4/5] ${idx === 0 ? 'md:col-span-2 aspect-[4/5] md:aspect-auto md:h-[70vh]' : ''}`}
-                >
-                  <img src={img} alt={`${product.name} - view ${idx + 1}`} className="w-full h-full object-cover" />
-                </motion.div>
-              ))
+              <>
+                <AnimatePresence mode="wait">
+                  <motion.img 
+                    key={currentImageIndex}
+                    src={product.images[currentImageIndex]}
+                    alt={`${product.name} - view ${currentImageIndex + 1}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </AnimatePresence>
+                
+                {product.images.length > 1 && (
+                  <>
+                    <button 
+                      onClick={prevImage}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex justify-center items-center rounded-full bg-white/80 backdrop-blur text-black shadow-lg hover:bg-white transition-colors z-10"
+                      aria-label="Previous image"
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+                    <button 
+                      onClick={nextImage}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex justify-center items-center rounded-full bg-white/80 backdrop-blur text-black shadow-lg hover:bg-white transition-colors z-10"
+                      aria-label="Next image"
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                    
+                    <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-10">
+                      {product.images.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentImageIndex(idx)}
+                          className={`w-2 h-2 rounded-full transition-all ${idx === currentImageIndex ? 'bg-black w-6' : 'bg-black/40 hover:bg-black/60'}`}
+                          aria-label={`Go to slide ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             ) : (
-              <div className="aspect-[4/5] bg-surface rounded-xl flex items-center justify-center opacity-50">
+              <div className="absolute inset-0 flex items-center justify-center opacity-50">
                 No image
               </div>
             )}
           </div>
+          
+          {/* Thumbnails */}
+          {product.images?.length > 1 && (
+            <div className="flex gap-4 mt-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+              {product.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentImageIndex(idx)}
+                  className={`relative flex-shrink-0 w-20 h-24 rounded-lg overflow-hidden border-2 transition-all ${idx === currentImageIndex ? 'border-accent opacity-100 scale-105' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                >
+                  <img src={img} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Scrolling Details */}
