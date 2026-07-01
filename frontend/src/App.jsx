@@ -28,8 +28,6 @@ import AdminProducts from './pages/admin/AdminProducts';
 import AdminTheme from './pages/admin/AdminTheme';
 import AdminOrders from './pages/admin/AdminOrders';
 
-
-
 const StoreLayout = ({ children }) => (
   <div className="min-h-screen flex flex-col bg-bg">
     <Header />
