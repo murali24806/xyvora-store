@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { useUserAuth } from '../context/UserAuthContext';
 import { db } from '../utils/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { openWhatsAppCheckout } from '../utils/whatsapp';
+import { API_URL } from '../utils/api';
 
 const Cart = () => {
+  const navigate = useNavigate();
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { settings } = useSiteSettings();
   const { user } = useUserAuth();
@@ -51,7 +53,17 @@ const Cart = () => {
     fetchProfile();
   }, [user]);
 
-  const handleCheckout = async () => {
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleCheckout = async (method) => {
     setError('');
     
     // Validate required fields
@@ -77,17 +89,127 @@ const Cart = () => {
       }
     }
 
-    // Format address into a single string for WhatsApp
     const formattedAddress = `${addressObj.house}, ${addressObj.street}, ${addressObj.city}, ${addressObj.state} ${addressObj.zip}`;
-
-    openWhatsAppCheckout(settings?.whatsappNumber, items, totalPrice, {
-      name: customerName,
-      phone: customerPhone,
-      email: customerEmail,
-      address: formattedAddress,
-    });
     
-    setIsProcessing(false);
+    const orderDetails = {
+      customer: { name: customerName, email: customerEmail, phone: customerPhone },
+      deliveryAddress: addressObj,
+      items: items.map(item => ({
+        productId: item.id || item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        size: item.size,
+        color: item.color,
+        image: item.image || (item.images ? item.images[0] : null)
+      })),
+      totalAmount: totalPrice,
+      userId: user ? user.uid : null
+    };
+
+    if (method === 'whatsapp') {
+      openWhatsAppCheckout(settings?.whatsappNumber, items, totalPrice, {
+        name: customerName,
+        phone: customerPhone,
+        email: customerEmail,
+        address: formattedAddress,
+      });
+      setIsProcessing(false);
+    } else if (method === 'cod') {
+      try {
+        const response = await fetch(`${API_URL}/orders/cod`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderDetails })
+        });
+        
+        if (!response.ok) throw new Error('Failed to create order');
+        
+        const data = await response.json();
+        clearCart();
+        navigate('/order-success', { state: { order: data.order } });
+      } catch (err) {
+        console.error(err);
+        setError('Error creating Cash on Delivery order. Please try again.');
+        setIsProcessing(false);
+      }
+    } else if (method === 'razorpay') {
+      const res = await loadRazorpayScript();
+      if (!res) {
+        setError('Razorpay SDK failed to load. Are you online?');
+        setIsProcessing(false);
+        return;
+      }
+
+      try {
+        // Create order on backend
+        const result = await fetch(`${API_URL}/orders/razorpay/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: totalPrice })
+        });
+        
+        if (!result.ok) throw new Error('Failed to initialize payment');
+        const orderData = await result.json();
+
+        // Razorpay Options
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'dummy_key_id',
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: settings?.siteName || 'XyvorA',
+          description: 'Store Purchase',
+          order_id: orderData.id,
+          handler: async function (response) {
+            try {
+              const verifyResult = await fetch(`${API_URL}/orders/razorpay/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  orderDetails
+                })
+              });
+              
+              if (verifyResult.ok) {
+                const verifyData = await verifyResult.json();
+                clearCart();
+                navigate('/order-success', { state: { order: verifyData.order } });
+              } else {
+                setError('Payment verification failed.');
+                setIsProcessing(false);
+              }
+            } catch (err) {
+              console.error(err);
+              setError('Payment verification failed.');
+              setIsProcessing(false);
+            }
+          },
+          prefill: {
+            name: customerName,
+            email: customerEmail,
+            contact: customerPhone
+          },
+          theme: {
+            color: '#111111'
+          }
+        };
+
+        const paymentObject = new window.Razorpay(options);
+        paymentObject.on('payment.failed', function (response) {
+          console.error(response.error);
+          setError('Payment failed or cancelled.');
+          setIsProcessing(false);
+        });
+        paymentObject.open();
+      } catch (err) {
+        console.error(err);
+        setError('Error initiating Razorpay checkout.');
+        setIsProcessing(false);
+      }
+    }
   };
 
   if (items.length === 0) {
@@ -255,20 +377,48 @@ const Cart = () => {
         <span className="font-display text-2xl text-ink">₹{totalPrice.toLocaleString('en-IN')}</span>
       </div>
 
-      <button
-        onClick={handleCheckout}
-        disabled={isProcessing || loadingProfile}
-        className="w-full py-4 font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none"
-        style={{ backgroundColor: '#25D366', color: '#0d0d0d' }}
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.6 6.32A8.86 8.86 0 0012.04 4a8.94 8.94 0 00-7.74 13.39L3 21l3.74-1.21a8.93 8.93 0 004.3 1.1h.01a8.94 8.94 0 006.32-15.28zM12.05 19.4a7.4 7.4 0 01-3.78-1.04l-.27-.16-2.81.9.9-2.74-.18-.28a7.42 7.42 0 1113.7-3.93 7.43 7.43 0 01-7.56 7.25zm4.07-5.56c-.22-.11-1.31-.65-1.51-.72-.2-.08-.35-.11-.5.11-.15.22-.57.72-.7.86-.13.15-.26.16-.48.05-.22-.11-.93-.34-1.77-1.09-.65-.58-1.09-1.3-1.22-1.52-.13-.22-.01-.34.11-.46.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.41-.06-.11-.5-1.21-.69-1.65-.18-.43-.37-.37-.5-.38-.13-.01-.28-.01-.43-.01-.15 0-.39.05-.6.28-.21.22-.81.79-.81 1.92s.83 2.22.95 2.37c.11.16 1.56 2.38 3.78 3.24 2.22.86 2.22.57 2.62.54.4-.04 1.31-.54 1.49-1.06.18-.52.18-.97.13-1.06-.05-.1-.2-.16-.42-.27z" />
-        </svg>
-        {isProcessing ? 'Processing...' : 'Checkout on WhatsApp'}
-      </button>
+      <div className="flex flex-col gap-3">
+        <button
+          onClick={() => handleCheckout('whatsapp')}
+          disabled={isProcessing || loadingProfile}
+          className="w-full py-4 font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none"
+          style={{ backgroundColor: '#25D366', color: '#0d0d0d' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.6 6.32A8.86 8.86 0 0012.04 4a8.94 8.94 0 00-7.74 13.39L3 21l3.74-1.21a8.93 8.93 0 004.3 1.1h.01a8.94 8.94 0 006.32-15.28zM12.05 19.4a7.4 7.4 0 01-3.78-1.04l-.27-.16-2.81.9.9-2.74-.18-.28a7.42 7.42 0 1113.7-3.93 7.43 7.43 0 01-7.56 7.25zm4.07-5.56c-.22-.11-1.31-.65-1.51-.72-.2-.08-.35-.11-.5.11-.15.22-.57.72-.7.86-.13.15-.26.16-.48.05-.22-.11-.93-.34-1.77-1.09-.65-.58-1.09-1.3-1.22-1.52-.13-.22-.01-.34.11-.46.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.41-.06-.11-.5-1.21-.69-1.65-.18-.43-.37-.37-.5-.38-.13-.01-.28-.01-.43-.01-.15 0-.39.05-.6.28-.21.22-.81.79-.81 1.92s.83 2.22.95 2.37c.11.16 1.56 2.38 3.78 3.24 2.22.86 2.22.57 2.62.54.4-.04 1.31-.54 1.49-1.06.18-.52.18-.97.13-1.06-.05-.1-.2-.16-.42-.27z" />
+          </svg>
+          {isProcessing ? 'Processing...' : 'Checkout on WhatsApp'}
+        </button>
 
-      <p className="text-center text-xs text-secondary mt-3">
-        You'll be redirected to WhatsApp with your order pre-filled.
+        <button
+          onClick={() => handleCheckout('razorpay')}
+          disabled={isProcessing || loadingProfile}
+          className="w-full py-4 font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none"
+          style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-bg)' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="2" />
+            <line x1="2" y1="10" x2="22" y2="10" />
+          </svg>
+          {isProcessing ? 'Processing...' : 'Pay Online (Card / UPI)'}
+        </button>
+
+        <button
+          onClick={() => handleCheckout('cod')}
+          disabled={isProcessing || loadingProfile}
+          className="w-full py-4 font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none border border-ink/20"
+          style={{ backgroundColor: 'transparent', color: 'var(--color-ink)' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+          </svg>
+          {isProcessing ? 'Processing...' : 'Cash on Delivery (COD)'}
+        </button>
+      </div>
+
+      <p className="text-center text-xs text-secondary mt-4">
+        Choose your preferred checkout method above.
       </p>
 
       <button onClick={clearCart} className="block mx-auto mt-6 text-xs text-secondary underline">

@@ -116,7 +116,7 @@ const Shop = () => {
         </motion.div>
       </div>
 
-      <AnimatePresence mode="wait">
+      <div>
         {loading ? (
           <motion.div 
             key="loading"
@@ -128,32 +128,26 @@ const Shop = () => {
             <div className="w-8 h-8 rounded-full animate-ping" style={{ backgroundColor: 'var(--color-accent)' }}></div>
           </motion.div>
         ) : products.length === 0 ? (
-          <motion.div 
+          <div 
             key="empty"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
             className="text-center py-32"
           >
             <p className="font-display text-4xl mb-4">Nothing here yet</p>
             <p className="opacity-60 text-lg">Check back soon — new drops are on the way.</p>
-          </motion.div>
+          </div>
         ) : (
-          <motion.div 
+          <div 
             key="grid"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-16"
           >
             {products.map((p) => (
-              <motion.div key={p._id} variants={itemVariants}>
+              <div key={p._id}>
                 <ProductCard product={p} />
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
+      </div>
     </div>
   );
 };

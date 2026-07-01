@@ -12,6 +12,7 @@ import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
+import OrderSuccess from './pages/OrderSuccess';
 
 
 import Login from './pages/auth/Login';
@@ -25,6 +26,7 @@ import AdminCustomers from './pages/admin/AdminCustomers';
 import AdminCategories from './pages/admin/AdminCategories';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminTheme from './pages/admin/AdminTheme';
+import AdminOrders from './pages/admin/AdminOrders';
 
 
 
@@ -75,6 +77,14 @@ function App() {
                 </StoreLayout>
               }
             />
+            <Route
+              path="/order-success"
+              element={
+                <StoreLayout>
+                  <OrderSuccess />
+                </StoreLayout>
+              }
+            />
             
             {/* User Auth */}
             <Route
@@ -116,6 +126,7 @@ function App() {
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="products" element={<AdminProducts />} />
+              <Route path="orders" element={<AdminOrders />} />
               <Route path="theme" element={<AdminTheme />} />
             </Route>
           </Routes>

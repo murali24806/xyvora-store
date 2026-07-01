@@ -70,6 +70,13 @@ const AdminProducts = () => {
     e.preventDefault();
     setSaving(true);
     setError('');
+
+    if (form.discountPrice && Number(form.discountPrice) >= Number(form.price)) {
+      setError('Discounted Selling Price must be less than the Original Price.');
+      setSaving(false);
+      return;
+    }
+
     try {
       const fd = new FormData();
       fd.append('name', form.name);
@@ -153,7 +160,7 @@ const AdminProducts = () => {
 
             <div className="grid grid-cols-2 gap-3 mb-3">
               <label className="block">
-                <span className="block text-xs uppercase tracking-widest text-gray-400 mb-1">Price (₹)</span>
+                <span className="block text-xs uppercase tracking-widest text-gray-400 mb-1">Original Price (₹)</span>
                 <input
                   type="number"
                   required
@@ -164,10 +171,11 @@ const AdminProducts = () => {
                 />
               </label>
               <label className="block">
-                <span className="block text-xs uppercase tracking-widest text-gray-400 mb-1">Sale price</span>
+                <span className="block text-xs uppercase tracking-widest text-gray-400 mb-1">Discounted Selling Price</span>
                 <input
                   type="number"
                   min="0"
+                  placeholder="Optional"
                   value={form.discountPrice}
                   onChange={(e) => setForm({ ...form, discountPrice: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-sm text-sm"
