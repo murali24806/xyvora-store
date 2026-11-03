@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
-import { useUserAuth } from '../context/UserAuthContext';
-import { db } from '../utils/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { openWhatsAppCheckout } from '../utils/whatsapp';
 import { API_URL } from '../utils/api';
 
@@ -12,7 +9,6 @@ const Cart = () => {
   const navigate = useNavigate();
   const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
   const { settings } = useSiteSettings();
-  const { user } = useUserAuth();
 
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -25,43 +21,8 @@ const Cart = () => {
     zip: ''
   });
   
-  const [loadingProfile, setLoadingProfile] = useState(true);
   const [error, setError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (user) {
-        setCustomerName(user.displayName || '');
-        setCustomerEmail(user.email || '');
-        try {
-          const docRef = doc(db, 'users', user.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            if (data.name && !user.displayName) setCustomerName(data.name);
-            if (data.phone) setCustomerPhone(data.phone);
-            if (data.address) setAddressObj(data.address);
-          }
-        } catch (error) {
-          console.error("Error fetching profile in cart:", error);
-        }
-      }
-      setLoadingProfile(false);
-    };
-
-    fetchProfile();
-  }, [user]);
-
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
 
   const handleCheckout = async (method) => {
     setError('');
@@ -73,21 +34,6 @@ const Cart = () => {
     }
 
     setIsProcessing(true);
-
-    // Save back to Firestore if logged in
-    if (user) {
-      try {
-        const userRef = doc(db, 'users', user.uid);
-        await setDoc(userRef, {
-          name: customerName,
-          phone: customerPhone,
-          email: customerEmail,
-          address: addressObj
-        }, { merge: true });
-      } catch (err) {
-        console.error("Error auto-saving profile:", err);
-      }
-    }
 
     const formattedAddress = `${addressObj.house}, ${addressObj.street}, ${addressObj.city}, ${addressObj.state} ${addressObj.zip}`;
     
@@ -103,8 +49,7 @@ const Cart = () => {
         color: item.color,
         image: item.image || (item.images ? item.images[0] : null)
       })),
-      totalAmount: totalPrice,
-      userId: user ? user.uid : null
+      totalAmount: totalPrice
     };
 
     if (method === 'whatsapp') {
@@ -131,82 +76,6 @@ const Cart = () => {
       } catch (err) {
         console.error(err);
         setError('Error creating Cash on Delivery order. Please try again.');
-        setIsProcessing(false);
-      }
-    } else if (method === 'razorpay') {
-      const res = await loadRazorpayScript();
-      if (!res) {
-        setError('Razorpay SDK failed to load. Are you online?');
-        setIsProcessing(false);
-        return;
-      }
-
-      try {
-        // Create order on backend
-        const result = await fetch(`${API_URL}/orders/razorpay/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: totalPrice })
-        });
-        
-        if (!result.ok) throw new Error('Failed to initialize payment');
-        const orderData = await result.json();
-
-        // Razorpay Options
-        const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'dummy_key_id',
-          amount: orderData.amount,
-          currency: orderData.currency,
-          name: settings?.siteName || 'XyvorA',
-          description: 'Store Purchase',
-          order_id: orderData.id,
-          handler: async function (response) {
-            try {
-              const verifyResult = await fetch(`${API_URL}/orders/razorpay/verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  orderDetails
-                })
-              });
-              
-              if (verifyResult.ok) {
-                const verifyData = await verifyResult.json();
-                clearCart();
-                navigate('/order-success', { state: { order: verifyData.order } });
-              } else {
-                setError('Payment verification failed.');
-                setIsProcessing(false);
-              }
-            } catch (err) {
-              console.error(err);
-              setError('Payment verification failed.');
-              setIsProcessing(false);
-            }
-          },
-          prefill: {
-            name: customerName,
-            email: customerEmail,
-            contact: customerPhone
-          },
-          theme: {
-            color: '#111111'
-          }
-        };
-
-        const paymentObject = new window.Razorpay(options);
-        paymentObject.on('payment.failed', function (response) {
-          console.error(response.error);
-          setError('Payment failed or cancelled.');
-          setIsProcessing(false);
-        });
-        paymentObject.open();
-      } catch (err) {
-        console.error(err);
-        setError('Error initiating Razorpay checkout.');
         setIsProcessing(false);
       }
     }
@@ -248,28 +117,28 @@ const Cart = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => updateQuantity(item.lineId, item.quantity - 1)}
-                  className="w-7 h-7 border rounded-sm text-sm font-bold"
-                  style={{ borderColor: 'rgba(107,107,107,0.3)' }}
+                  className="w-7 h-7 border border-secondary/30 rounded-sm flex items-center justify-center text-xs hover:border-ink"
                   aria-label="Decrease quantity"
                 >
-                  −
+                  -
                 </button>
-                <span className="w-6 text-center text-sm font-semibold text-ink">{item.quantity}</span>
+                <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
                 <button
                   onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
-                  className="w-7 h-7 border rounded-sm text-sm font-bold"
-                  style={{ borderColor: 'rgba(107,107,107,0.3)' }}
+                  className="w-7 h-7 border border-secondary/30 rounded-sm flex items-center justify-center text-xs hover:border-ink"
                   aria-label="Increase quantity"
                 >
                   +
                 </button>
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="font-bold text-ink">₹{(item.price * item.quantity).toLocaleString('en-IN')}</p>
+            <div className="text-right">
+              <p className="font-semibold text-sm md:text-base text-ink mb-1">
+                ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+              </p>
               <button
                 onClick={() => removeFromCart(item.lineId)}
-                className="text-xs text-secondary underline mt-1"
+                className="text-xs text-secondary hover:text-ink underline"
               >
                 Remove
               </button>
@@ -278,16 +147,10 @@ const Cart = () => {
         ))}
       </div>
 
-      <div className="bg-surface rounded-sm p-5 md:p-6 mb-8">
+      {/* Customer Delivery Details */}
+      <div className="bg-surface/50 border border-secondary/20 p-6 rounded-lg mb-8">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-ink">
-            Delivery Details (Required)
-          </p>
-          {user && (
-            <p className="text-xs text-secondary italic">
-              Auto-saves to your profile
-            </p>
-          )}
+          <h2 className="font-display text-xl text-ink">Delivery details</h2>
         </div>
         
         {error && (
@@ -296,80 +159,73 @@ const Cart = () => {
           </div>
         )}
 
-        {loadingProfile ? (
-          <div className="animate-pulse flex flex-col gap-3">
-             <div className="h-10 bg-black/5 rounded-sm"></div>
-             <div className="h-10 bg-black/5 rounded-sm"></div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <input
+            type="text"
+            required
+            placeholder="Your Full Name"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
+          />
+          <input
+            type="tel"
+            required
+            placeholder="Phone Number (e.g. 9876543210)"
+            value={customerPhone}
+            onChange={(e) => setCustomerPhone(e.target.value)}
+            className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
+          />
+          <input
+            type="email"
+            placeholder="Email Address (Optional)"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
+            className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink md:col-span-2"
+          />
+          <input
+            type="text"
+            required
+            placeholder="House / Flat Number"
+            value={addressObj.house}
+            onChange={(e) => setAddressObj({...addressObj, house: e.target.value})}
+            className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
+          />
+          <input
+            type="text"
+            required
+            placeholder="Street Address (Road, Landmark)"
+            value={addressObj.street}
+            onChange={(e) => setAddressObj({...addressObj, street: e.target.value})}
+            className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
+          />
+          <input
+            type="text"
+            required
+            placeholder="City"
+            value={addressObj.city}
+            onChange={(e) => setAddressObj({...addressObj, city: e.target.value})}
+            className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="text"
+              required
+              placeholder="State"
+              value={addressObj.state}
+              onChange={(e) => setAddressObj({...addressObj, state: e.target.value})}
+              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
+            />
+            <input
+              type="text"
+              required
+              placeholder="PIN Code"
+              value={addressObj.zip}
+              onChange={(e) => setAddressObj({...addressObj, zip: e.target.value})}
+              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
+            />
           </div>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              required
-              placeholder="Your Full Name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
-            />
-            <input
-              type="tel"
-              required
-              placeholder="Phone Number (e.g. 9876543210)"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
-            />
-            <input
-              type="email"
-              placeholder="Email Address (Optional)"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink md:col-span-2"
-            />
-            <input
-              type="text"
-              required
-              placeholder="House / Flat Number"
-              value={addressObj.house}
-              onChange={(e) => setAddressObj({...addressObj, house: e.target.value})}
-              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
-            />
-            <input
-              type="text"
-              required
-              placeholder="Street Address (Road, Landmark)"
-              value={addressObj.street}
-              onChange={(e) => setAddressObj({...addressObj, street: e.target.value})}
-              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
-            />
-            <input
-              type="text"
-              required
-              placeholder="City"
-              value={addressObj.city}
-              onChange={(e) => setAddressObj({...addressObj, city: e.target.value})}
-              className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                required
-                placeholder="State"
-                value={addressObj.state}
-                onChange={(e) => setAddressObj({...addressObj, state: e.target.value})}
-                className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
-              />
-              <input
-                type="text"
-                required
-                placeholder="PIN Code"
-                value={addressObj.zip}
-                onChange={(e) => setAddressObj({...addressObj, zip: e.target.value})}
-                className="px-4 py-3 rounded-sm border border-secondary/30 bg-transparent text-sm text-ink outline-none focus:border-ink"
-              />
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       <div className="flex items-center justify-between mb-6">
@@ -380,7 +236,7 @@ const Cart = () => {
       <div className="flex flex-col gap-3">
         <button
           onClick={() => handleCheckout('whatsapp')}
-          disabled={isProcessing || loadingProfile}
+          disabled={isProcessing}
           className="w-full py-4 font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none"
           style={{ backgroundColor: '#25D366', color: '#0d0d0d' }}
         >
@@ -391,21 +247,8 @@ const Cart = () => {
         </button>
 
         <button
-          onClick={() => handleCheckout('razorpay')}
-          disabled={isProcessing || loadingProfile}
-          className="w-full py-4 font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none"
-          style={{ backgroundColor: 'var(--color-ink)', color: 'var(--color-bg)' }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="5" width="20" height="14" rx="2" />
-            <line x1="2" y1="10" x2="22" y2="10" />
-          </svg>
-          {isProcessing ? 'Processing...' : 'Pay Online (Card / UPI)'}
-        </button>
-
-        <button
           onClick={() => handleCheckout('cod')}
-          disabled={isProcessing || loadingProfile}
+          disabled={isProcessing}
           className="w-full py-4 font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none border border-ink/20"
           style={{ backgroundColor: 'transparent', color: 'var(--color-ink)' }}
         >

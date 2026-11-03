@@ -2,15 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
-import { useUserAuth } from '../context/UserAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Menu, X, User } from 'lucide-react';
+import { ShoppingBag, Menu, X } from 'lucide-react';
 import MagneticButton from './MagneticButton';
 
 const Header = () => {
   const { totalItems } = useCart();
   const { settings } = useSiteSettings();
-  const { user, logout } = useUserAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
@@ -69,28 +67,6 @@ const Header = () => {
 
             {/* Actions */}
             <div className="flex items-center gap-6">
-              {user ? (
-                <div className="hidden md:flex items-center gap-4">
-                  <Link to="/profile" className="text-xs uppercase tracking-widest opacity-60 hover:text-accent transition-colors">
-                    Hi, {user.displayName ? user.displayName.split(' ')[0] : 'User'}
-                  </Link>
-                  <button onClick={logout} className="text-xs font-bold uppercase tracking-widest hover:text-accent transition-colors">
-                    Logout
-                  </button>
-                </div>
-              ) : (
-                <MagneticButton>
-                  <Link
-                    to="/login"
-                    className="hidden md:flex relative items-center group transition-transform hover:scale-110"
-                    style={{ color: 'var(--color-headerText)' }}
-                    aria-label="Login"
-                  >
-                    <User size={24} strokeWidth={1.5} />
-                  </Link>
-                </MagneticButton>
-              )}
-
               <MagneticButton>
                 <Link
                   to="/cart"
@@ -175,32 +151,6 @@ const Header = () => {
               >
                 Contact
               </NavLink>
-              
-              {user ? (
-                <>
-                  <NavLink 
-                    to="/profile" 
-                    className="font-display text-5xl tracking-widest uppercase hover:text-accent transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Profile
-                  </NavLink>
-                  <button 
-                    onClick={() => { logout(); setMenuOpen(false); }}
-                    className="font-display text-5xl tracking-widest uppercase text-red-500 hover:text-accent transition-colors"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <NavLink 
-                  to="/login" 
-                  className="font-display text-5xl tracking-widest uppercase hover:text-accent transition-colors"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Login
-                </NavLink>
-              )}
             </nav>
             
             <div className="absolute bottom-10 font-display text-xl tracking-widest opacity-50">

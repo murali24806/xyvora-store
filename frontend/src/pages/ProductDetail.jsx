@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../utils/api';
 import { useCart } from '../context/CartContext';
-import { useUserAuth } from '../context/UserAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import MagneticButton from '../components/MagneticButton';
@@ -11,7 +10,7 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-black/10 py-4">
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-between w-full text-left font-bold uppercase tracking-widest text-xs"
       >
@@ -39,7 +38,6 @@ const Accordion = ({ title, children, defaultOpen = false }) => {
 const ProductDetail = () => {
   const { slug } = useParams();
   const { addToCart } = useCart();
-  const { user } = useUserAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [product, setProduct] = useState(null);
@@ -77,7 +75,7 @@ const ProductDetail = () => {
 
   if (loading) return (
     <div className="h-screen flex justify-center items-center">
-       <div className="w-8 h-8 rounded-full animate-ping" style={{ backgroundColor: 'var(--color-accent)' }}></div>
+      <div className="w-8 h-8 rounded-full animate-ping" style={{ backgroundColor: 'var(--color-accent)' }}></div>
     </div>
   );
 
@@ -93,10 +91,6 @@ const ProductDetail = () => {
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
 
   const handleAddToCart = () => {
-    if (!user) {
-      navigate('/login', { state: { from: location } });
-      return;
-    }
     addToCart(product, { size: selectedSize, color: selectedColor, quantity });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -105,14 +99,14 @@ const ProductDetail = () => {
   return (
     <div className="max-w-[90rem] mx-auto px-5 md:px-8 py-20 md:py-32">
       <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 relative">
-        
+
         {/* Left: Image Carousel */}
         <div className="w-full lg:w-3/5 lg:sticky lg:top-32 h-fit">
           <div className="relative bg-surface rounded-xl overflow-hidden aspect-[4/5] md:h-[75vh]">
             {product.images?.length > 0 ? (
               <>
                 <AnimatePresence mode="wait">
-                  <motion.img 
+                  <motion.img
                     key={currentImageIndex}
                     src={product.images[currentImageIndex]}
                     alt={`${product.name} - view ${currentImageIndex + 1}`}
@@ -123,24 +117,24 @@ const ProductDetail = () => {
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                 </AnimatePresence>
-                
+
                 {product.images.length > 1 && (
                   <>
-                    <button 
+                    <button
                       onClick={prevImage}
                       className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex justify-center items-center rounded-full bg-white/80 backdrop-blur text-black shadow-lg hover:bg-white transition-colors z-10"
                       aria-label="Previous image"
                     >
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
                     </button>
-                    <button 
+                    <button
                       onClick={nextImage}
                       className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex justify-center items-center rounded-full bg-white/80 backdrop-blur text-black shadow-lg hover:bg-white transition-colors z-10"
                       aria-label="Next image"
                     >
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
                     </button>
-                    
+
                     <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-10">
                       {product.images.map((_, idx) => (
                         <button
@@ -160,7 +154,7 @@ const ProductDetail = () => {
               </div>
             )}
           </div>
-          
+
           {/* Thumbnails */}
           {product.images?.length > 1 && (
             <div className="flex gap-4 mt-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
@@ -183,7 +177,7 @@ const ProductDetail = () => {
             {product.category?.name && (
               <p className="text-xs font-bold uppercase tracking-[0.2em] opacity-50 mb-4">{product.category.name}</p>
             )}
-            
+
             <h1 className="font-display text-5xl md:text-6xl mb-6 tracking-tighter leading-none">
               {product.name}
             </h1>
@@ -308,7 +302,7 @@ const ProductDetail = () => {
                 </ul>
               </Accordion>
             </div>
-            
+
           </motion.div>
         </div>
       </div>

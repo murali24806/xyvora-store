@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { UserAuthProvider } from './context/UserAuthContext';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 
@@ -14,15 +14,8 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import OrderSuccess from './pages/OrderSuccess';
 
-
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import Profile from './pages/Profile';
-
-import AdminLogin from './pages/admin/AdminLogin';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminCustomers from './pages/admin/AdminCustomers';
 import AdminCategories from './pages/admin/AdminCategories';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminTheme from './pages/admin/AdminTheme';
@@ -42,92 +35,70 @@ function App() {
       <AdminAuthProvider>
         <ScrollToTop />
         <Routes>
-            {/* Public storefront */}
-            <Route
-              path="/"
-              element={
-                <StoreLayout>
-                  <Home />
-                </StoreLayout>
-              }
-            />
-            <Route
-              path="/shop"
-              element={
-                <StoreLayout>
-                  <Shop />
-                </StoreLayout>
-              }
-            />
-            <Route
-              path="/product/:slug"
-              element={
-                <StoreLayout>
-                  <ProductDetail />
-                </StoreLayout>
-              }
-            />
-            <Route
-              path="/cart"
-              element={
-                <StoreLayout>
-                  <Cart />
-                </StoreLayout>
-              }
-            />
-            <Route
-              path="/order-success"
-              element={
-                <StoreLayout>
-                  <OrderSuccess />
-                </StoreLayout>
-              }
-            />
-            
-            {/* User Auth */}
-            <Route
-              path="/profile"
-              element={
-                <StoreLayout>
-                  <Profile />
-                </StoreLayout>
-              }
-            />
-            <Route
-              path="/login"
-              element={
-                <StoreLayout>
-                  <Login />
-                </StoreLayout>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <StoreLayout>
-                  <Register />
-                </StoreLayout>
-              }
-            />
+          {/* Public storefront */}
+          <Route
+            path="/"
+            element={
+              <StoreLayout>
+                <Home />
+              </StoreLayout>
+            }
+          />
+          <Route
+            path="/shop"
+            element={
+              <StoreLayout>
+                <Shop />
+              </StoreLayout>
+            }
+          />
+          <Route
+            path="/product/:slug"
+            element={
+              <StoreLayout>
+                <ProductDetail />
+              </StoreLayout>
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <StoreLayout>
+                <Cart />
+              </StoreLayout>
+            }
+          />
+          <Route
+            path="/order-success"
+            element={
+              <StoreLayout>
+                <OrderSuccess />
+              </StoreLayout>
+            }
+          />
+          
+          {/* Auth routes redirected */}
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/register" element={<Navigate to="/" replace />} />
+          <Route path="/profile" element={<Navigate to="/" replace />} />
+          <Route path="/admin/login" element={<Navigate to="/admin" replace />} />
 
-            {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<AdminDashboard />} />
-              <Route path="customers" element={<AdminCustomers />} />
-              <Route path="categories" element={<AdminCategories />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="theme" element={<AdminTheme />} />
-            </Route>
-          </Routes>
+          {/* Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="categories" element={<AdminCategories />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="theme" element={<AdminTheme />} />
+          </Route>
+        </Routes>
       </AdminAuthProvider>
     </UserAuthProvider>
   );
